@@ -1,0 +1,14 @@
+*.csv
+.idea
+data
+jpg
+result
+*.h5
+*.json
+*.tsv
+*.dill
+learn
+.ipynb_checkpoints
+.Rproj.user
+.RData
+.Rhistory
