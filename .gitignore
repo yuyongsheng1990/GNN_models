@@ -12,3 +12,8 @@ learn
 .Rproj.user
 .RData
 .Rhistory
+test.py
+test.spec
+*.gitignore
+build
+dist
