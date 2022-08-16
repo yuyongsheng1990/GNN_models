@@ -17,3 +17,4 @@ test.spec
 *.gitignore
 build
 dist
+*.mp4
