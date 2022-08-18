@@ -3,7 +3,7 @@
 # @Author : yysgz
 # @File : GCN.py
 # @Project : GNN Algorithms
-# @Description : 2022.08.16,实现GCN algorithm
+# @Description : 2022.08.16,实现GCN algorithm, github address: https://github.com/dsgiitr/graph_nets/blob/master/GCN/GCN.py
 
 import torch
 import torch.nn as nn
