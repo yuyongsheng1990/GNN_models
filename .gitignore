@@ -1,6 +1,6 @@
 *.csv
 .idea
-data
+# data
 jpg
 result
 *.h5
