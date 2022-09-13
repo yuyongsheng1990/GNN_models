@@ -1,8 +1,9 @@
 *.csv
 .idea
-# data
+data
 jpg
 result
+venv
 *.h5
 *.json
 *.tsv

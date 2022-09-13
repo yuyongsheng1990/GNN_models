@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # @Time : 2022/7/28 11:26
 # @Author : yysgz
-# @File : deepwalk.py
+# @File : DeepWalk.py
 # @Project : DeepWalk Demo.ipynb
 
 import os
