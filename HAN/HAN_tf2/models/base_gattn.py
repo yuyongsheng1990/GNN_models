@@ -46,7 +46,7 @@ class BaseGAttN:
         mask = tf.cast(mask, dtype=tf.float32)  # 改变tensor数据类型
         mask /= tf.reduce_mean(mask)  # 通过均值求loss
         loss *= mask
-        return tf.reduce_mean(loss)
+        return tf.reduce_mean(loss)  # 用于计算tensor某一维度的mean
 
     def masked_sigmoid_cross_entropy(logits, labels, mask):
         """Softmax cross-entropy loss with masking."""

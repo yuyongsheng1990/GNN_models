@@ -159,11 +159,11 @@ def SimpleAttLayer(inputs, attention_size, time_major=False, return_alphas=False
         v = tf.tanh(tf.tensordot(inputs, w_omega, axes=1) + b_omega)   # (3025, 2, 128)
 
     # For each of the timestamps its vector of size A from `v` is reduced with `u` vector
-    vu = tf.tensordot(v, u_omega, axes=1, name='vu')  # (B,T) shape   tensor, (3025, 2)
+    vu = tf.tensordot(v, u_omega, axes=1, name='vu')  # 任意维度的tensor矩阵相乘；(B,T) shape   tensor, (3025, 2)
     alphas = tf.nn.softmax(vu, name='alphas')         # (B,T) shape   tensor, (3025, 2)
 
     # Output of (Bi-)RNN is reduced with attention vector; the result has (B,D) shape
-    output = tf.reduce_sum(inputs * tf.expand_dims(alphas, -1), 1)  # (3025, 2, 64) * (3025, 2, 1) = (3025, 2, 64) -> (3025, 2)
+    output = tf.reduce_sum(inputs * tf.expand_dims(alphas, -1), 1)  # (3025, 2, 64) * (3025, 2, 1) = (3025, 2, 64) -> (3025, 64)
 
     if not return_alphas:
         return output

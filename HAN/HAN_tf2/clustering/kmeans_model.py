@@ -22,7 +22,7 @@ from sklearn.metrics import roc_curve, f1_score
 from sklearn import manifold  # 一种非线性降维的手段
 from sklearn.model_selection import train_test_split
 
-def my_Kmeans(x, y, k=4, time=10, return_NMI=False):
+def my_Kmeans(x, y, k=3, time=10, return_NMI=False):
 
     x = np.array(x)
     x = np.squeeze(x)
@@ -30,15 +30,32 @@ def my_Kmeans(x, y, k=4, time=10, return_NMI=False):
 
     if len(y.shape) > 1:
         y = np.argmax(y, axis=1)
+    print('xx: {}, yy: {}'.format(x.shape, y.shape))
 
-    estimator = KMeans(n_clusters=k)
+    # estimator = KMeans(n_clusters=k)
+    # ARI_list = []  # adjusted_rand_score(
+    # NMI_list = []
+    # if time:
+    #     for i in range(time):
+    #         estimator.fit(x, y)
+    #         y_pred = estimator.predict(x)
+    #         score = normalized_mutual_info_score(y, y_pred)
+    #         NMI_list.append(score)
+    #         s2 = adjusted_rand_score(y, y_pred)
+    #         ARI_list.append(s2)
+    #         print('time {}: NMI: {:.4f}, ARI: {:.4f}'.format(i, score, s2))
+    #     # print('NMI_list: {}'.format(NMI_list))
+    #     score = sum(NMI_list) / len(NMI_list)
+    #     s2 = sum(ARI_list) / len(ARI_list)
+    #     print('NMI (10 avg): {:.4f} , ARI (10avg): {:.4f}'.format(score, s2))
+
     ARI_list = []  # adjusted_rand_score(
     NMI_list = []
     if time:
         # print('KMeans exps {}次 æ±~B平å~]~G '.format(time))
         for i in range(time):
-            estimator.fit(x, y)
-            y_pred = estimator.predict(x)
+            estimator = KMeans(n_clusters=k, random_state=0).fit(x)
+            y_pred = estimator.labels_
             score = normalized_mutual_info_score(y, y_pred)
             NMI_list.append(score)
             s2 = adjusted_rand_score(y, y_pred)
@@ -47,8 +64,8 @@ def my_Kmeans(x, y, k=4, time=10, return_NMI=False):
         score = sum(NMI_list) / len(NMI_list)
         s2 = sum(ARI_list) / len(ARI_list)
         print('NMI (10 avg): {:.4f} , ARI (10avg): {:.4f}'.format(score, s2))
-
     else:
+        # estimator = KMeans(n_clusters=k, random_state=0).fit(x)
         estimator.fit(x, y)
         y_pred = estimator.predict(x)
         score = normalized_mutual_info_score(y, y_pred)

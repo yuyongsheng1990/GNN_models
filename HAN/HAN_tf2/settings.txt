@@ -1,0 +1,4 @@
+tensorflow-2.11.0
+numpy-1.23.1
+networkx-2.6.3
+scipy-1.10.1

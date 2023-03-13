@@ -1,0 +1,23 @@
+#!/bin/bash
+
+#PBS -P da30
+#PBS -q normal
+
+#PBS -l ncpus=12
+#PBS -l mem=64GB
+
+#PBS -q gpuvolta
+#PBS -l ngpus=1
+
+#PBS -l jobfs=0
+#PBS -l walltime=04:00:00
+#PBS -l storage=scratch/da30
+
+module load pytorch/1.4.0a0
+
+# source /scratch/da30/zq9443/miniconda/etc/profile.d/conda.sh
+
+# conda activate hnn
+
+
+python3 /home/576/yy0588/unsupervised_Cora_Citeseer/execute.py

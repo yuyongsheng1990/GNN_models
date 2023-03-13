@@ -40,8 +40,8 @@ class HeteGAT_multi(BaseGAttN):
                                                        is_train,     # bool
                                                        attn_drop,    # tensor, ()
                                                        ffd_drop,     # tensor, ()
-                                                       bias_mat_list=bias_in_list,  # list:2, tensor()
-                                                       hid_units=hid_units,   # hid_units:8
+                                                       bias_mat_list=bias_in_list,  # list:2, tensor(1, 3025, 3025)
+                                                       hid_units=hid_units,   # hid_units: [8]
                                                        n_heads=n_heads,       # n_heads: [8, 1]
                                                        residual=residual,     # residual: False
                                                        activation=nonlinearity)  # nonlinearity:tf.nn.elu
@@ -54,12 +54,12 @@ class HeteGAT_multi(BaseGAttN):
         for features, bias_mat in zip(ftr_in_list, bias_mat_list):
             attns = []
             jhy_embeds = []
-            for _ in range(n_heads[0]):   # [8,1]
+            for _ in range(n_heads[0]):   # [8,1], 8个head
                 # multi-head attention 计算
                 attns.append(attn_head(features, bias_mat=bias_mat,
                                               out_sz=hid_units[0], activation=activation,
                                               in_drop=ffd_drop, coef_drop=attn_drop, residual=False))
-            h_1 = tf.concat(attns, axis=-1)
+            h_1 = tf.concat(attns, axis=-1)  # shape=(1, 3025, 64)
 
             for i in range(1, len(hid_units)):
                 h_old = h_1
@@ -73,7 +73,7 @@ class HeteGAT_multi(BaseGAttN):
                 h_1 = tf.concat(attns, axis=-1)
             embed_list.append(tf.expand_dims(tf.squeeze(h_1), axis=1))  # list:2. 其中每个元素tensor, (3025, 1, 64)
 
-        multi_embed = tf.concat(embed_list, axis=1)   # tensor, (3025, 2, 64)
+        multi_embed = tf.concat(embed_list, axis=1)   # tensor, (2, 3025, 64)
         # attention输出：tensor(3025, 64)、softmax概率
         final_embed, att_val = SimpleAttLayer(multi_embed,
                                               mp_att_size,

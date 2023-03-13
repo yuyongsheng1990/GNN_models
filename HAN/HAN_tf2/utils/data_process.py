@@ -16,14 +16,14 @@ import sys
  Finally, the matrix is converted to bias vectors.
  Expected shape: [graph, nodes, nodes]
 """
-def adj_to_bias(adj, sizes, nhood=1):  # 邻接矩阵adjacency matrix
-    nb_graphs = adj.shape[0]  # 行,即num_nodes
+def adj_to_bias(adj, sizes, nhood=1):  # adj, [1,3025,3025]; sizes, [3025]
+    nb_graphs = adj.shape[0]  # 1
     mt = np.empty(adj.shape)  # 根据给定的维度和数值类型，返回一个新的ndarray数组，其元素不进行初始化
     for g in range(nb_graphs):
         mt[g] = np.eye(adj.shape[1])  # 返回一个二维的ndarray数组
         for _ in range(nhood):
             mt[g] = np.matmul(mt[g], (adj[g] + np.eye(adj.shape[1])))  # 相乘
-        for i in range(sizes[g]):  # 这个应该可以简化，直接对整个数组元素做操作！！！
+        for i in range(sizes[g]):  # sizes=[3025], 这个应该可以简化，直接对整个数组元素做操作！！！
             for j in range(sizes[g]):
                 if mt[g][i][j] > 0.0:
                     mt[g][i][j] = 1.0
