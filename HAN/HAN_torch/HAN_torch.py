@@ -49,7 +49,7 @@ def args_register():
     parser.add_argument('--ffd_drop', default=0.0, help='the ffd_drop')
 
     parser.add_argument('--data_path', default='./data', type=str, help='data path')
-    parser.add_argument('--acm_filepath', default='./data/ACM3025.mat', help='acm datapath')
+    # parser.add_argument('--acm_filepath', default='./data/ACM3025.mat', help='acm datapath')
 
     # 解析参数
     args = parser.parse_args(args=[])
@@ -78,14 +78,15 @@ def load_data_acm3025(path=None):
     test_idx: (1, 2125)，300-3024之间随机抽取的索引
     '''
     labels, features = data['label'], data['feature'].astype(float)
-    # 将labels 3列 转化为 1列
-    if labels.shape[0] > 1:
-        y = np.argmax(labels, axis=1)
+    # # 将labels 3列 转化为 1列
+    # if labels.shape[0] > 1:
+    #     y = np.argmax(labels, axis=1)
 
     nb_fea = features.shape[0]
     adjs_list = [data['PAP'] - np.eye(nb_fea), data['PLP'] - np.eye(nb_fea)]  # (3025, 3025)
     feas_list = [features, features, features]  # features: (3025, 1870)
 
+    y = labels
     train_idx = data['train_idx']
     val_idx = data['val_idx']
     test_idx = data['test_idx']
@@ -95,9 +96,12 @@ def load_data_acm3025(path=None):
     test_mask = sample_mask(test_idx, y.shape[0])
 
     # extract y_train, y_val, y_test
-    y_train = y[train_idx]
-    y_val = y[val_idx]
-    y_test = y[test_idx]
+    y_train = np.zeros(y.shape)
+    y_val = np.zeros(y.shape)
+    y_test = np.zeros(y.shape)
+    y_train[train_mask, :] = y[train_mask, :]
+    y_val[val_mask, :] = y[val_mask, :]
+    y_test[test_mask, :] = y[test_mask, :]
 
     print('y_train: {}, y_val: {}, y_test: {}, train_idx: {}, val_idx:{}, test_idx: {}'.format(y_train.shape,
                                                                                                y_val.shape,
@@ -112,19 +116,20 @@ if __name__=='__main__':
 
     # define args
     args = args_register()
+    print('batch size: ', args.batch_size)
+    print('nb_epochs: ', args.nb_epochs)
 
     with open(args.data_path + '/args.txt', 'w') as f:
         json.dump(args.__dict__, f, indent=2)  # __dict__将模型参数保存成字典形式；indent缩进打印
 
-    print('batch size: ', args.batch_size)
-    print('nb_epochs: ', args.nb_epochs)
-
+    acm_filepath = args.data_path + '/ACM3025.mat'
     # load acm data
-    adjs_list, feas_list, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data_acm3025(path=args.acm_filepath)
+    adjs_list, feas_list, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data_acm3025(path=acm_filepath)
 
     nb_nodes = feas_list[0].shape[0]  # 3025
     ft_size = feas_list[0].shape[1]  # 1870
-    nb_classes = len(np.unique(y_train))
+    # nb_classes = len(np.unique(y_train))
+    nb_classes = y_train.shape[1]
     activation = nn.ReLU
 
     biases_list = [adj_to_bias(adj, nb_nodes, nhood=1) for adj in adjs_list]
