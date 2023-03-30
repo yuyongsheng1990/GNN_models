@@ -28,18 +28,18 @@ def attn_head(features, out_sz, bias_mat, activation, in_drop=0.0, coef_drop=0.0
     with tf.name_scope('my_attn'):  # 定义一个上下文管理器
         if in_drop != 0.0:
             features = tf.nn.dropout(features, 1.0 - in_drop)  # 以rate置0
-        features_fts = tf.compat.v1.layers.conv1d(features, out_sz, 1, use_bias=False)  # 一维卷积操作, out: (1, 3025, 8)
+        features_fts = tf.compat.v1.layers.conv1d(features, out_sz, 1, use_bias=False)  # 一维卷积操作, features: (1,3025,1870) out: (1, 3025, 8)
 
-        f_1 = tf.compat.v1.layers.conv1d(features_fts, 1, 1)  # (1, 3025, 1)
-        f_2 = tf.compat.v1.layers.conv1d(features_fts, 1, 1)  # (1, 3025, 1)
+        f_1 = tf.compat.v1.layers.conv1d(features_fts, 1, 1)  # (1,3025,8) -> (1, 3025, 1)
+        f_2 = tf.compat.v1.layers.conv1d(features_fts, 1, 1)  # (1,3025,8) -> (1, 3025, 1)
 
-        logits = f_1 + tf.transpose(f_2, [0, 2, 1])  # 转置         # (1, 3025, 3025)
-        coefs = tf.nn.softmax(tf.nn.leaky_relu(logits) + bias_mat)  # (1, 3025, 3025)
+        logits = f_1 + tf.transpose(f_2, [0, 2, 1])  # 转置, (1, 3025, 3025)
+        coefs = tf.nn.softmax(tf.nn.leaky_relu(logits) + bias_mat)  # bias_mat: (1, 3025, 3025)
 
         if coef_drop != 0.0:
-            coefs = tf.nn.dropout(coefs, 1.0 - coef_drop)
+            coefs = tf.nn.dropout(coefs, 1.0 - coef_drop)  # (1, 3025, 3025)
         if in_drop != 0.0:
-            features_fts = tf.nn.dropout(features_fts, 1.0 - in_drop)
+            features_fts = tf.nn.dropout(features_fts, 1.0 - in_drop)  # (1, 3025, 8)
 
         vals = tf.matmul(coefs, features_fts)  # (1, 3025, 8)
         ret = tf_slim.bias_add(vals)  # 将bias向量加到value矩阵上      # (1. 3025， 8)
@@ -146,7 +146,7 @@ def SimpleAttLayer(inputs, attention_size, time_major=False, return_alphas=False
         # (T,B,D) => (B,T,D)
         inputs = tf.array_ops.transpose(inputs, [1, 0, 2])  #
 
-    hidden_size = inputs.shape[2]  # D value - hidden size of the RNN layer
+    hidden_size = inputs.shape[2]  # 64, D value - hidden size of the RNN layer
 
     # Trainable parameters
     w_omega = tf.Variable(tf.compat.v1.random_normal([hidden_size, attention_size], stddev=0.1))  # (64, 128)

@@ -47,17 +47,18 @@ class HeteGAT_multi(BaseGAttN):
                                                        activation=nonlinearity)  # nonlinearity:tf.nn.elu
 
     '''
+    # 分别将两个graph生成embeeding，然后将这这两个PAT embedding、PLP embedding合并为一个comprehensive embedding.
     def inference(ftr_in_list, nb_classes, nb_nodes, training, attn_drop, ffd_drop,
                   bias_mat_list, hid_units, n_heads, activation=tf.nn.elu, residual=False,
                   mp_att_size=128):
         embed_list = []
-        for features, bias_mat in zip(ftr_in_list, bias_mat_list):
+        for features, bias_mat in zip(ftr_in_list, bias_mat_list):  # (1,3025,1870); (1,3025,3025)
             attns = []
             jhy_embeds = []
             for _ in range(n_heads[0]):   # [8,1], 8个head
-                # multi-head attention 计算
-                attns.append(attn_head(features, bias_mat=bias_mat,
-                                              out_sz=hid_units[0], activation=activation,
+                # multi-head attention 计算，不是应该把x分成8份吗
+                attns.append(attn_head(features, bias_mat=bias_mat,  # attn_head return (1,3025,8)
+                                              out_sz=hid_units[0], activation=activation,  # hid_units:[8]
                                               in_drop=ffd_drop, coef_drop=attn_drop, residual=False))
             h_1 = tf.concat(attns, axis=-1)  # shape=(1, 3025, 64)
 
@@ -71,23 +72,23 @@ class HeteGAT_multi(BaseGAttN):
                                                   in_drop=ffd_drop,
                                                   coef_drop=attn_drop, residual=residual))
                 h_1 = tf.concat(attns, axis=-1)
-            embed_list.append(tf.expand_dims(tf.squeeze(h_1), axis=1))  # list:2. 其中每个元素tensor, (3025, 1, 64)
+            embed_list.append(tf.expand_dims(tf.squeeze(h_1), axis=1))  # list:2. 其中graph形成的64-D embedding, (3025, 1, 64)
 
-        multi_embed = tf.concat(embed_list, axis=1)   # tensor, (2, 3025, 64)
-        # attention输出：tensor(3025, 64)、softmax概率
-        final_embed, att_val = SimpleAttLayer(multi_embed,
-                                              mp_att_size,
+        multi_embed = tf.concat(embed_list, axis=1)   # 按行合并tensor, (3025, 2, 64)，对应两个graph的fea和adj形成的embedding
+        # Simple attention layer，整合两个graph embedding info 生成一个comprehensive embedding：tensor(3025, 64)、softmax概率 (3025, 2)
+        final_embed, att_val = SimpleAttLayer(multi_embed,  # (3025, 2, 64)
+                                              mp_att_size,  # 128
                                               time_major=False,
                                               return_alphas=True)
 
         out = []
         for i in range(n_heads[-1]):  # 1
-            # 用于添加一个全连接层(input, output) -> (3025, 3)
+            # 用一个全连接层 prediction(input, output) -> (3025, 3)
             out.append(tf.compat.v1.layers.dense(final_embed, nb_classes, activation=None))
         #     out.append(attn_head(h_1, bias_mat=bias_mat,
         #                                 out_sz=nb_classes, activation=lambda x: x,
         #                                 in_drop=ffd_drop, coef_drop=attn_drop, residual=False))
-        logits = tf.add_n(out) / n_heads[-1]  # add_n是列表相加。tensor,(3025, 3)
+        logits = tf.add_n(out) / n_heads[-1]  # add_n是列表相加。prediction probability,(3025, 3)
         # logits_list.append(logits)
         print('de')
 

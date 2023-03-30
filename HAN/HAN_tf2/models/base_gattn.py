@@ -40,10 +40,15 @@ class BaseGAttN:
     ##########################
 
     def masked_softmax_cross_entropy(logits, labels, mask):
-        """Softmax cross-entropy loss with masking."""
-        loss = tf.nn.softmax_cross_entropy_with_logits(  # 返回交叉熵向量
+        """
+            Softmax cross-entropy loss with masking：
+            - logits, (3025, 3), prediction probability
+            - labels, (3025, 3)
+            - mask, (3025, )
+        """
+        loss = tf.nn.softmax_cross_entropy_with_logits(  # 返回交叉熵向量, (3025,)
             logits=logits, labels=labels)
-        mask = tf.cast(mask, dtype=tf.float32)  # 改变tensor数据类型
+        mask = tf.cast(mask, dtype=tf.float32)  # 改变tensor数据类型, [1., 0., 1., ...]
         mask /= tf.reduce_mean(mask)  # 通过均值求loss
         loss *= mask
         return tf.reduce_mean(loss)  # 用于计算tensor某一维度的mean
@@ -61,7 +66,7 @@ class BaseGAttN:
 
     def masked_accuracy(logits, labels, mask):
         """Accuracy with masking."""
-        correct_prediction = tf.equal(  # 判断向量元素是否相等
+        correct_prediction = tf.equal(  # 判断向量元素是否相等, (3025, )
             tf.argmax(logits, 1), tf.argmax(labels, 1))
         accuracy_all = tf.cast(correct_prediction, tf.float32)
         mask = tf.cast(mask, dtype=tf.float32)

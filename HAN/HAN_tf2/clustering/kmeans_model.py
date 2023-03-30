@@ -25,11 +25,11 @@ from sklearn.model_selection import train_test_split
 def my_Kmeans(x, y, k=3, time=10, return_NMI=False):
 
     x = np.array(x)
-    x = np.squeeze(x)
-    y = np.array(y)
+    x = np.squeeze(x)  # (2125, 64)
+    y = np.array(y)  # (2125, 3)
 
     if len(y.shape) > 1:
-        y = np.argmax(y, axis=1)
+        y = np.argmax(y, axis=1)  # (2125, )
     print('xx: {}, yy: {}'.format(x.shape, y.shape))
 
     # estimator = KMeans(n_clusters=k)
