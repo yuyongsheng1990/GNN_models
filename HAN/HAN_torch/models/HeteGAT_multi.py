@@ -18,10 +18,10 @@ class HeteGAT_multi(nn.Module):
                               activation=nn.ELU(), residual=args.residual)
 
     '''
-    def __init__(self, inputs_list, nb_classes, nb_nodes, attn_drop, ffd_drop,
-                 biases_mat_list, hid_units, n_heads, activation=nn.ELU(), residual=False):
+    def __init__(self, feature_size, nb_classes, nb_nodes, attn_drop, ffd_drop,
+                 biases_mat_list, hid_units, n_heads, activation=nn.ELU()):
         super(HeteGAT_multi, self).__init__()
-        self.inputs_list = inputs_list  # list:3, (3025, 1864)
+        self.feature_size = feature_size  # list:3, (3025, 1864)
         self.nb_classes = nb_classes  # 3
         self.nb_nodes = nb_nodes  # 3025
         self.attn_drop = attn_drop  # 0.5
@@ -30,32 +30,33 @@ class HeteGAT_multi(nn.Module):
         self.hid_units = hid_units  # [8]
         self.n_heads = n_heads  # [8,1]
         self.activation = activation  # nn.ELU
-        self.residual = residual
+        # self.residual = residual
         self.mlp_attn_size = 128
 
         self.layers = self._make_attn_head()
         self.simpleAttnLayer = SimpleAttnLayer(64, self.mlp_attn_size, time_major=False, return_alphas=True)  # 64, 128
-        self.fc = nn.Linear(64, self.nb_classes)  # 64, 3
+        self.fc = nn.Linear(64, nb_classes)  # 64, 3
 
 
     def _make_attn_head(self):
         layers = []
-        for inputs, biases in zip(self.inputs_list, self.biases_mat_list):  # (3025,1864); (3025,3025)
+        for i in range(len(self.biases_mat_list)):  # (3025,1864); (3025,3025)
             attn_list = []
             for j in range(self.n_heads[0]):  # 8-head
-                attn_list.append(Attn_Head(in_channel=int(inputs.shape[1]/self.n_heads[0]), out_sz=self.hid_units[0], bias_mat=biases,  # in_channel,233; out_sz,8
-                                in_drop=self.ffd_drop, coef_drop=self.attn_drop, activation=self.activation, residual=self.residual))
+                attn_list.append(Attn_Head(in_channel=int(self.feature_size/self.n_heads[0]), out_sz=self.hid_units[0],  # in_channel,233; out_sz,8
+                                in_drop=self.ffd_drop, coef_drop=self.attn_drop, activation=self.activation))
 
             layers.append(nn.Sequential(*list(m for m in attn_list)))
         return nn.Sequential(*list(m for m in layers))
 
-    def forward(self, feas_list, batch_nodes):
+    def forward(self, features, batch_nodes):
         embed_list = []
+
         # multi-head attention in a hierarchical manner
-        for i, (feas, biases) in enumerate(zip(feas_list, self.biases_mat_list)):
+        for i, biases in enumerate(self.biases_mat_list):
             attns = []
 
-            batch_feature = feas[batch_nodes]  # (100, 1864)
+            batch_feature = features[batch_nodes]  # (100, 1864)
             batch_bias = biases[batch_nodes][:, batch_nodes]  # (100, 100)
             attn_embed_size = int(batch_feature.shape[1] / self.n_heads[0])
             jhy_embeds = []

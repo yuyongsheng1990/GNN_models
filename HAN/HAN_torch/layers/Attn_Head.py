@@ -9,10 +9,9 @@ import torch
 import torch.nn as nn
 
 class Attn_Head(nn.Module):
-    def __init__(self, in_channel, out_sz, bias_mat, in_drop=0.0, coef_drop=0.0, activation=None,
-                 residual=False, return_coef=False):
+    def __init__(self, in_channel, out_sz, in_drop=0.0, coef_drop=0.0, activation=None, return_coef=False):
         super(Attn_Head, self).__init__()
-        self.bias_mat = bias_mat  # (3025,3025)
+        # self.bias_mat = bias_mat  # (3025,3025)
         self.in_drop = in_drop  # 0.0
         self.coef_drop = coef_drop  # 0.5
         self.return_coef = return_coef

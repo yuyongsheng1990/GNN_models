@@ -92,8 +92,9 @@ def load_data_acm3025(path=None):
 
     # 邻接矩阵；特征矩阵
     adjs_list = [data['PAP'] - np.eye(nb_fea), data['PLP'] - np.eye(nb_fea)]  # (3025, 3025)
-    feas_list = [features, features, features]  # features list:3, (3025, 1864)
-    feas_list = [torch.from_numpy(fea) for fea in feas_list]
+    # feas_list = [features, features, features]  # features list:3, (3025, 1864)
+    # feas_list = [torch.from_numpy(fea) for fea in feas_list]
+    features = torch.from_numpy(features)
 
     train_mask = sample_mask(train_idx, y.shape[0])  # # 3025长度的bool list，train_idx位置为True
     val_mask = sample_mask(val_idx, y.shape[0])
@@ -111,7 +112,7 @@ def load_data_acm3025(path=None):
                                                                                                val_idx.shape,
                                                                                                test_idx.shape))
 
-    return adjs_list, feas_list, y, y_train, y_val, y_test, train_mask, val_mask, test_mask
+    return adjs_list, features, y, y_train, y_val, y_test, train_mask, val_mask, test_mask
 
 if __name__=='__main__':
 
@@ -125,18 +126,18 @@ if __name__=='__main__':
 
     # load acm data
     acm_filepath = args.data_path + '/ACM3025.mat'
-    adjs_list, feas_list, y, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data_acm3025(path=acm_filepath)
+    adjs_list, features, y, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data_acm3025(path=acm_filepath)
 
-    nb_nodes = feas_list[0].shape[0]  # 3025
-    ft_size = feas_list[0].shape[1]  # 1864
+    nb_nodes = features.shape[0]  # 3025
+    ft_size = features.shape[1]  # 1864
     nb_classes = len(np.unique(y))  # 3
 
     # 计算偏差矩阵
     biases_list = [torch.from_numpy(adj_to_bias(adj, nb_nodes, nhood=1)) for adj in adjs_list]  # list:2, (3025,3025)
     # 10 params, 需要用到feature_list和biases_list shape去创建 multi-head attention
-    model = HeteGAT_multi(inputs_list=feas_list, nb_classes=nb_classes, nb_nodes=nb_nodes, attn_drop=0.5,
-                          ffd_drop=0.0, biases_mat_list=biases_list, hid_units=args.hid_units, n_heads=args.n_heads,
-                          activation=nn.ELU(), residual=args.residual)
+    model = HeteGAT_multi(feature_size=ft_size, nb_classes=nb_classes, nb_nodes=nb_nodes, attn_drop=0.5,ffd_drop=0.0,
+                      biases_mat_list=biases_list, hid_units=args.hid_units, n_heads=args.n_heads, activation=nn.ELU())
+
     model.to(device)
     print(model.parameters())
     loss_fn = nn.CrossEntropyLoss()
@@ -178,8 +179,6 @@ if __name__=='__main__':
 
         batch_train_loss = []
         batch_train_acc = []
-        batch_val_loss = []
-        batch_val_acc = []
 
         num_batches = int(train_num_samples / args.batch_size)
         for batch in range(num_batches):
@@ -192,7 +191,7 @@ if __name__=='__main__':
 
             optimizer.zero_grad()
 
-            outputs = model(feas_list, batch_nodes)  # (100, 64)
+            outputs = model(features, batch_nodes)  # (100, 64)
             _, pred = torch.max(outputs.data, 1)  # (100,)
 
             loss = loss_fn(outputs, batch_labels)
@@ -211,6 +210,10 @@ if __name__=='__main__':
 
         '''-----------------validation--------------------'''
         model.eval()
+
+        batch_val_loss = []
+        batch_val_acc = []
+
         num_batches = int(val_num_samples / args.batch_size)
         for batch in range(num_batches):
             correct = 0
@@ -220,7 +223,7 @@ if __name__=='__main__':
             batch_nodes = val_idx[i_start: i_end]
             batch_labels = y_val[i_start: i_end]
 
-            outputs = model(feas_list, batch_nodes)
+            outputs = model(features, batch_nodes)
             _, pred = torch.max(outputs.data, 1)
 
             loss = loss_fn(outputs, batch_labels)
@@ -275,7 +278,7 @@ if __name__=='__main__':
         batch_nodes = test_idx[i_start: i_end]
         batch_labels = y_test[i_start: i_end]
 
-        outputs = model(feas_list, batch_nodes)
+        outputs = model(features, batch_nodes)
         _, pred = torch.max(outputs.data, 1)
 
         loss = loss_fn(outputs, batch_labels)
