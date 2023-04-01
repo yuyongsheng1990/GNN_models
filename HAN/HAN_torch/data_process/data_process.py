@@ -11,7 +11,6 @@ import scipy.sparse as sp
 
 """
  Finally, the matrix is converted to bias vectors.
- Expected shape: [graph, nodes, nodes]
 """
 def adj_to_bias(adj, nb_nodes, nhood=1):  # adj,(3025, 3025); sizes, [3025]
 

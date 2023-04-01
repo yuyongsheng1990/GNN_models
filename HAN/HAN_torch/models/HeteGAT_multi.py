@@ -9,77 +9,69 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from layers.Attn_Head import Attn_Head
-from utils.SimpleAttLayer import SimpleAttLayer
+from layers.Attn_Head import Attn_Head, SimpleAttnLayer
 
 class HeteGAT_multi(nn.Module):
     '''
-    # forward；model = HeteGAT_multi
-    logits, final_embedding, att_val = model.inference(fea_in_list,  # list:3, tensor（1， 3025， 1870）
-                                                       nb_classes,   # 3
-                                                       nb_nodes,     # 3025
-                                                       is_train,     # bool
-                                                       attn_drop,    # tensor, ()
-                                                       ffd_drop,     # tensor, ()
-                                                       batch_bias_list=bias_in_list,  # list:2, tensor(1, 3025, 3025)
-                                                       hid_units=hid_units,   # hid_units: [8]
-                                                       n_heads=n_heads,       # n_heads: [8, 1]
-                                                       residual=residual,     # residual: False
-                                                       activation=nonlinearity)  # nonlinearity:tf.nn.elu
+    inputs_list=feas_list, nb_classes=nb_classes, nb_nodes=nb_nodes, attn_drop=0.5,
+                              ffd_drop=0.0, biases_list=biases_list, hid_units=args.hid_units, n_heads=args.n_heads,
+                              activation=nn.ELU(), residual=args.residual)
 
     '''
-    def __init__(self, nb_classes, hid_units, n_heads, residual, mlp_attn_size, attn_drop, ffd_drop):
+    def __init__(self, inputs_list, nb_classes, nb_nodes, attn_drop, ffd_drop,
+                 biases_mat_list, hid_units, n_heads, activation=nn.ELU(), residual=False):
         super(HeteGAT_multi, self).__init__()
-        self.nb_classes = nb_classes
-        self.hid_units = hid_units
-        self.n_heads = n_heads
+        self.inputs_list = inputs_list  # list:3, (3025, 1864)
+        self.nb_classes = nb_classes  # 3
+        self.nb_nodes = nb_nodes  # 3025
+        self.attn_drop = attn_drop  # 0.5
+        self.ffd_drop = ffd_drop  # 0.0
+        self.biases_mat_list = biases_mat_list  # list:2, (3025,3025)
+        self.hid_units = hid_units  # [8]
+        self.n_heads = n_heads  # [8,1]
+        self.activation = activation  # nn.ELU
         self.residual = residual
-        self.mlp_attn_size = mlp_attn_size
-        self.attn_drop = attn_drop
-        self.ffd_drop = ffd_drop
-        # 4 params
-        self.attn_head1 = Attn_Head(out_sz=n_heads[0], in_drop=ffd_drop,
-                                    coef_drop=attn_drop, residual=residual)
-        self.attn_head2 = Attn_Head(out_sz=n_heads[1], in_drop=ffd_drop,
-                                    coef_drop=attn_drop, residual=residual)
+        self.mlp_attn_size = 128
 
-    def forward(self, batch_feature, batch_bias):
+        self.layers = self._make_attn_head()
+        self.simpleAttnLayer = SimpleAttnLayer(64, self.mlp_attn_size, time_major=False, return_alphas=True)  # 64, 128
+        self.fc = nn.Linear(64, self.nb_classes)  # 64, 3
+
+
+    def _make_attn_head(self):
+        layers = []
+        for inputs, biases in zip(self.inputs_list, self.biases_mat_list):  # (3025,1864); (3025,3025)
+            attn_list = []
+            for j in range(self.n_heads[0]):  # 8-head
+                attn_list.append(Attn_Head(in_channel=int(inputs.shape[1]/self.n_heads[0]), out_sz=self.hid_units[0], bias_mat=biases,  # in_channel,233; out_sz,8
+                                in_drop=self.ffd_drop, coef_drop=self.attn_drop, activation=self.activation, residual=self.residual))
+
+            layers.append(nn.Sequential(*list(m for m in attn_list)))
+        return nn.Sequential(*list(m for m in layers))
+
+    def forward(self, feas_list, batch_nodes):
         embed_list = []
-        attns = []
-        jhy_embeds = []
-        for _ in range(self.n_heads[0]):  # [8,1], 8个head
-            # multi-head attention 计算
-            attns.append(self.attn_head1(batch_feature, batch_bias=batch_bias))
-
-        h_1 = torch.concat(attns, dim=-1)  # shape=(1, 3025, 64)
-
-        for i in range(1, len(self.hid_units)):
-            h_old = h_1
+        # multi-head attention in a hierarchical manner
+        for i, (feas, biases) in enumerate(zip(feas_list, self.biases_mat_list)):
             attns = []
-            for _ in range(self.n_heads[i]):
-                attns.append(self.attn_head2(h_1, batch_bias=batch_bias))
-            h_1 = torch.cat(attns, dim=-1)
-        embed_list.append(torch.unsqueeze(torch.squeeze(h_1), dim=1))  # list:2. 其中每个元素tensor, (3025, 1, 64)
 
+            batch_feature = feas[batch_nodes]  # (100, 1864)
+            batch_bias = biases[batch_nodes][:, batch_nodes]  # (100, 100)
+            attn_embed_size = int(batch_feature.shape[1] / self.n_heads[0])
+            jhy_embeds = []
+            for n in range(self.n_heads[0]):  # [8,1], 8个head
+                # multi-head attention 计算
+                attns.append(self.layers[i][n](batch_feature[:, n*attn_embed_size: (n+1)*attn_embed_size], batch_bias))
 
-        multi_embed = torch.concat(embed_list, dim=1)   # tensor, (2, 3025, 64)
-        # attention输出：tensor(3025, 64)、softmax概率
-        final_embed, att_val = SimpleAttLayer(multi_embed,
-                                              self.mlp_attn_size,
-                                              time_major=False,
-                                              return_alphas=True)
+            h_1 = torch.cat(attns, dim=-1)  # shape=(1, 100, 64)
+            embed_list.append(torch.transpose(h_1,1,0))  # list:2. 其中每个元素tensor, (100, 1, 64)
+
+        multi_embed = torch.cat(embed_list, dim=1)   # tensor, (100, 2, 64)
+        # simple attention 合并多个meta-based homo-graph embedding
+        final_embed, att_val = self.simpleAttnLayer(multi_embed)  # (100, 64)
 
         out = []
-        for i in range(self.n_heads[-1]):  # 1
-            # 用于添加一个全连接层(input, output) -> (3025, 3)
-            out.append(nn.Linear(final_embed, self.nb_classes))
-        #     out.append(attn_head(h_1, batch_bias=batch_bias,
-        #                                 out_sz=nb_classes, activation=lambda x: x,
-        #                                 in_drop=ffd_drop, coef_drop=attn_drop, residual=False))
-        logits = torch.sum(out) / self.n_heads[-1]  # add_n是列表相加。tensor,(3025, 3)
-        # logits_list.append(logits)
-        print('de')
+        # 添加一个全连接层做预测(final_embedding, prediction) -> (100, 3)
+        out.append(self.fc(final_embed))
 
-        logits = torch.unsqueeze(logits, dim=0)  # (1, 3025, 3)
-        # attention通过全连接层预测(1, 3025, 3)、attention final_embedding tensor(3025, 64)、attention 概率
-        return logits, final_embed, att_val
+        return out[0]
