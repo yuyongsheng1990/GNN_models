@@ -114,6 +114,13 @@ def load_data_acm3025(path=None):
 
     return adjs_list, features, y, y_train, y_val, y_test, train_mask, val_mask, test_mask
 
+def extract_biases(biases_list, batch_nodes):
+    batch_bias_list = []
+    for i, biases in enumerate(biases_list):
+        batch_bias = biases_list[i][batch_nodes][:,batch_nodes]
+        batch_bias_list.append(batch_bias)
+    return batch_bias_list
+
 if __name__=='__main__':
 
     # define args
@@ -130,13 +137,14 @@ if __name__=='__main__':
 
     nb_nodes = features.shape[0]  # 3025
     ft_size = features.shape[1]  # 1864
+    nb_adjs = len(adjs_list)
     nb_classes = len(np.unique(y))  # 3
 
     # 计算偏差矩阵
     biases_list = [torch.from_numpy(adj_to_bias(adj, nb_nodes, nhood=1)) for adj in adjs_list]  # list:2, (3025,3025)
     # 10 params, 需要用到feature_list和biases_list shape去创建 multi-head attention
     model = HeteGAT_multi(feature_size=ft_size, nb_classes=nb_classes, nb_nodes=nb_nodes, attn_drop=0.5,ffd_drop=0.0,
-                      biases_mat_list=biases_list, hid_units=args.hid_units, n_heads=args.n_heads, activation=nn.ELU())
+                      nb_biases=nb_adjs, hid_units=args.hid_units, n_heads=args.n_heads, activation=nn.ELU())
 
     model.to(device)
     print(model.parameters())
@@ -188,10 +196,11 @@ if __name__=='__main__':
 
             batch_nodes = train_idx[i_start: i_end]
             batch_labels = y_train[i_start: i_end]
+            batch_bias_list = extract_biases(biases_list, batch_nodes)
 
             optimizer.zero_grad()
 
-            outputs = model(features, batch_nodes)  # (100, 64)
+            outputs = model(features, batch_bias_list, batch_nodes)  # (100, 64)
             _, pred = torch.max(outputs.data, 1)  # (100,)
 
             loss = loss_fn(outputs, batch_labels)
@@ -222,8 +231,9 @@ if __name__=='__main__':
 
             batch_nodes = val_idx[i_start: i_end]
             batch_labels = y_val[i_start: i_end]
+            batch_bias_list = extract_biases(biases_list, batch_nodes)
 
-            outputs = model(features, batch_nodes)
+            outputs = model(features, batch_bias_list, batch_nodes)
             _, pred = torch.max(outputs.data, 1)
 
             loss = loss_fn(outputs, batch_labels)
@@ -277,8 +287,9 @@ if __name__=='__main__':
 
         batch_nodes = test_idx[i_start: i_end]
         batch_labels = y_test[i_start: i_end]
+        batch_bias_list = extract_biases(biases_list, batch_nodes)
 
-        outputs = model(features, batch_nodes)
+        outputs = model(features, batch_bias_list, batch_nodes)
         _, pred = torch.max(outputs.data, 1)
 
         loss = loss_fn(outputs, batch_labels)
