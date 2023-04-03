@@ -3,7 +3,7 @@ import torch.nn as nn
 
 # Applies an average on seq, of shape (batch, nodes, features)
 # While taking into account the masking of msk
-class AvgReadout(nn.Module):
+class AvgReadout(nn.Module):  # 压缩维度
     def __init__(self):
         super(AvgReadout, self).__init__()
 

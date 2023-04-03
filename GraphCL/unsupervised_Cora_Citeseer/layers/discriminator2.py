@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
-
+# 基于data augmentation生成关于features和shuffled features的鉴别向量
 class Discriminator2(nn.Module):
     def __init__(self, n_h):
         super(Discriminator2, self).__init__()
-        self.f_k = nn.Bilinear(n_h, n_h, 1)
+        self.f_k = nn.Bilinear(n_h, n_h, 1)  # 512
 
         for m in self.modules():
             self.weights_init(m)

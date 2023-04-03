@@ -92,57 +92,11 @@ def adj_to_bias(adj, sizes, nhood=1):
 # This section of code adapted from tkipf/gcn #
 ###############################################
 
-def parse_index_file(filename):
-    """Parse index file."""
-    index = []
-    for line in open(filename):
-        index.append(int(line.strip()))
-    return index
-
 def sample_mask(idx, l):
     """Create mask."""
     mask = np.zeros(l)
     mask[idx] = 1
     return np.array(mask, dtype=np.bool)
-
-def load_data(dataset_str): # {'pubmed', 'citeseer', 'cora'}
-    """Load data."""
-    names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
-    objects = []
-    for i in range(len(names)):
-        with open(project_path + "/unsupervised_Cora_Citeseer/data/ind.{}.{}".format(dataset_str, names[i]), 'rb') as f:
-            if sys.version_info > (3, 0):
-                objects.append(pkl.load(f, encoding='latin1'))
-            else:
-                objects.append(pkl.load(f))
-
-    x, y, tx, ty, allx, ally, graph = tuple(objects)  # x indicates train x; tx indicates test x;
-    test_idx_reorder = parse_index_file(project_path + "/unsupervised_Cora_Citeseer/data/ind.{}.test.index".format(dataset_str))
-    test_idx_range = np.sort(test_idx_reorder)
-
-    if dataset_str == 'citeseer':
-        # Fix citeseer dataset (there are some isolated nodes in the graph)
-        # Find isolated nodes, add them as zero-vecs into the right position
-        test_idx_range_full = range(min(test_idx_reorder), max(test_idx_reorder)+1)
-        tx_extended = sp.lil_matrix((len(test_idx_range_full), x.shape[1]))
-        tx_extended[test_idx_range-min(test_idx_range), :] = tx
-        tx = tx_extended
-        ty_extended = np.zeros((len(test_idx_range_full), y.shape[1]))
-        ty_extended[test_idx_range-min(test_idx_range), :] = ty
-        ty = ty_extended
-
-    features = sp.vstack((allx, tx)).tolil()
-    features[test_idx_reorder, :] = features[test_idx_range, :]
-    adj = nx.adjacency_matrix(nx.from_dict_of_lists(graph))
-
-    labels = np.vstack((ally, ty))
-    labels[test_idx_reorder, :] = labels[test_idx_range, :]
-
-    idx_test = test_idx_range.tolist()
-    idx_train = range(len(y))
-    idx_val = range(len(y), len(y)+500)
-
-    return adj, features, labels, idx_train, idx_val, idx_test
 
 def sparse_to_tuple(sparse_mx, insert_batch=False):
     """Convert sparse matrix to tuple representation."""
@@ -180,13 +134,13 @@ def standardize_data(f, train_mask):
     f = (f - mu) / sigma
     return f
 
-def preprocess_features(features):
+def preprocess_features(features):  # lil_mx,(3327,3703)
     """Row-normalize feature matrix and convert to tuple representation"""
-    rowsum = np.array(features.sum(1))
-    r_inv = np.power(rowsum, -1).flatten()
-    r_inv[np.isinf(r_inv)] = 0.
-    r_mat_inv = sp.diags(r_inv)
-    features = r_mat_inv.dot(features)
+    rowsum = np.array(features.sum(1))  # ft_embedding相加, (3327,1)
+    r_inv = np.power(rowsum, -1).flatten()  # 开平方; flatten返回一个一维数组,(3327,)
+    r_inv[np.isinf(r_inv)] = 0.  # 无穷小数置0
+    r_mat_inv = sp.diags(r_inv)  # diags从对角线创建一个稀疏矩阵, (3327,3327)
+    features = r_mat_inv.dot(features)  # csr_mx, (3327,3703)
     return features.todense(), sparse_to_tuple(features)
 
 def normalize_adj(adj):

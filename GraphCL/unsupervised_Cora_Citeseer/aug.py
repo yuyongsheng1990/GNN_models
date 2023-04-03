@@ -86,40 +86,40 @@ def aug_drop_node(input_fea, input_adj, drop_percent=0.2):
     return aug_input_fea, aug_input_adj
 
 
-def aug_subgraph(input_fea, input_adj, drop_percent=0.2):
+def aug_subgraph(input_fea, input_adj, drop_percent=0.2):  # features,tensor,(1,3327,3703); adj,csr_mx,(3327,3327); drop_p,0.1
     
-    input_adj = torch.tensor(input_adj.todense().tolist())
-    input_fea = input_fea.squeeze(0)
-    node_num = input_fea.shape[0]
+    input_adj = torch.tensor(input_adj.todense().tolist())  # tensor, (3327,3327)
+    input_fea = input_fea.squeeze(0)  # tensor, (3327,3703)
+    node_num = input_fea.shape[0]  # 3327
 
-    all_node_list = [i for i in range(node_num)]
-    s_node_num = int(node_num * (1 - drop_percent))
-    center_node_id = random.randint(0, node_num - 1)
-    sub_node_id_list = [center_node_id]
+    all_node_list = [i for i in range(node_num)]  # list: 3327, (0,3326)
+    s_node_num = int(node_num * (1 - drop_percent))  # 取9成node, int, 2994
+    center_node_id = random.randint(0, node_num - 1)  # randint 随机返回一个整数 -> 作为中心节点, 859
+    sub_node_id_list = [center_node_id]  # subgraph中心节点id列表
     all_neighbor_list = []
 
     for i in range(s_node_num - 1):
         
-        all_neighbor_list += torch.nonzero(input_adj[sub_node_id_list[i]], as_tuple=False).squeeze(1).tolist()
+        all_neighbor_list += torch.nonzero(input_adj[sub_node_id_list[i]], as_tuple=False).squeeze(1).tolist()  # 第i个中心节点的non-zero neighbors, list:2,[1795,605]; 3,[1795,605,859]
         
         all_neighbor_list = list(set(all_neighbor_list))
-        new_neighbor_list = [n for n in all_neighbor_list if not n in sub_node_id_list]
+        new_neighbor_list = [n for n in all_neighbor_list if not n in sub_node_id_list]  # 去除subgraph中心节点node的non-zero neighbors list. list:2,[1795,605];
         if len(new_neighbor_list) != 0:
-            new_node = random.sample(new_neighbor_list, 1)[0]
-            sub_node_id_list.append(new_node)
+            new_node = random.sample(new_neighbor_list, 1)[0]  # 若non-zero neighbors list非空，则随机取一个作为中心节点, 605
+            sub_node_id_list.append(new_node)  # 加入subgraph 中心节点 list中
         else:
             break
 
-    
-    drop_node_list = sorted([i for i in all_node_list if not i in sub_node_id_list])
+    # sub_node_list, 2120, [859,605,1795,1483...], all_neighbor_list, 2120, [1,5,8,10,12...]; sub_node_id_list,2120,[430,2844,670,924...], all_neighbor_list,2120,[1,5,8,10,12...]
+    drop_node_list = sorted([i for i in all_node_list if not i in sub_node_id_list])  # list:1207, 不在subgraph 中心节点node list的 drop node list
 
-    aug_input_fea = delete_row_col(input_fea, drop_node_list, only_row=True)
-    aug_input_adj = delete_row_col(input_adj, drop_node_list)
+    aug_input_fea = delete_row_col(input_fea, drop_node_list, only_row=True)  # (2120,3703), subgraph node对应的features
+    aug_input_adj = delete_row_col(input_adj, drop_node_list)  # tensor,（2120, 2120), subgraph node对应的adj_mx
 
-    aug_input_fea = aug_input_fea.unsqueeze(0)
-    aug_input_adj = sp.csr_matrix(np.matrix(aug_input_adj))
+    aug_input_fea = aug_input_fea.unsqueeze(0)  # tensor,(1,2120,3703)
+    aug_input_adj = sp.csr_matrix(np.matrix(aug_input_adj))  # csr_mx, (2120,2120)
 
-    return aug_input_fea, aug_input_adj
+    return aug_input_fea, aug_input_adj  # 抽取子图node features和adjs
 
 
 
