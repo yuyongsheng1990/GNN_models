@@ -1,0 +1,2 @@
+model_checkpoint_path: "C:\\Users\\yysgz\\OneDrive - Macquarie University\\Desktop\\GNN models/data/han_data/acm_features.ckpt"
+all_model_checkpoint_paths: "C:\\Users\\yysgz\\OneDrive - Macquarie University\\Desktop\\GNN models/data/han_data/acm_features.ckpt"
